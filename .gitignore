@@ -1,0 +1,17 @@
+bin/
+Bin/
+obj/
+Obj/
+!/Libs
+*.user
+*.suo
+_ReSharper.*
+*.ReSharper.user
+*.sln.cache
+*.xap
+*.vspcc
+*.vscc 
+*.vssscc
+*.lock
+journal/
+Deployment/
