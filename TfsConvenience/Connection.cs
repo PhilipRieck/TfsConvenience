@@ -1,76 +1,57 @@
 ﻿using System;
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Client;
 
 namespace TfsConvenience
 {
-    class Connection : IConnection
+    public static class Connection 
     {
-        private ConnectionParameters _parameters;
-        private readonly IConnectionParameterProvider _parameterProvider;
-
-        private bool _isValid;
-        public bool IsValid {
-            get { return _isValid || Parameters.SkipTest; }
-            set { _isValid = value; }
-        }
-
-        private ICredentials _credentials;
-
-        private ConnectionParameters Parameters
+        public static TfsTeamProjectCollection Connect(ConnectionParameters parameters)
         {
-            get { return _parameters ?? (_parameters = _parameterProvider.GetParameters()); }
-        }
-
-        public Connection(IConnectionParameterProvider parameterProvider)
-        {
-            _parameterProvider = parameterProvider;
-
-        }
-
-        public TfsTeamProjectCollection Connect()
-        {
-           return new TfsTeamProjectCollection(new Uri(Parameters.CollectionUri), GetCredentials());
-        }
-
-        private ICredentials GetCredentials()
-        {
-            if (_credentials == null)
-            {
-                if (Parameters.UseNetworkCredentials)
-                {
-                    _credentials = CredentialCache.DefaultNetworkCredentials;
-                }
-                else if (!string.IsNullOrEmpty(Parameters.UserName) && !string.IsNullOrEmpty(Parameters.Password))
-                {
-                    var parts = Parameters.UserName.Split('\\');
-                    _credentials = parts.Length > 1 
-                        ? new NetworkCredential(parts[1], Parameters.Password, parts[0]) 
-                        : new NetworkCredential(Parameters.UserName, Parameters.Password);
-                }
-            }
-            return _credentials;
+           return new TfsTeamProjectCollection(new Uri(parameters.CollectionUri), GetCredentials(parameters));
         }
         
-        public bool Test()
+        private static ICredentials GetCredentials(ConnectionParameters parameters)
         {
-            try
+            ICredentials credentials = null;
+            
+            if (parameters.UseNetworkCredentials)
             {
-                using (var tfs = Connect())
+                credentials = CredentialCache.DefaultNetworkCredentials;
+            }
+            else if (!string.IsNullOrEmpty(parameters.UserName) && !string.IsNullOrEmpty(parameters.Password))
+            {
+                var parts = parameters.UserName.Split('\\');
+                credentials = parts.Length > 1
+                    ? new NetworkCredential(parts[1], parameters.Password, parts[0])
+                    : new NetworkCredential(parameters.UserName, parameters.Password);
+            }
+            
+            return credentials;
+        }
+        
+        public static Task<bool> Test(ConnectionParameters parameters)
+        {
+            return Task.Run(() =>
+            {
+                try
                 {
-                    tfs.Authenticate();
-                    if (tfs.HasAuthenticated)
+                    using (var tfs = Connect(parameters))
                     {
-                        IsValid = true;
-                        return true;
+                        tfs.Authenticate();
+                        if (tfs.HasAuthenticated)
+                        {
+                            return true;
+                        }
                     }
+                    return false;
                 }
-                return false;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+                catch (Exception)
+                {
+                    return false;
+                }
+            });
         }
     }
 }

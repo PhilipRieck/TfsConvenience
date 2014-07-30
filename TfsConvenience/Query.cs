@@ -4,15 +4,15 @@ using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
 namespace TfsConvenience
 {
-    class Query : IQuery
+    public class Query : IQuery
     {
-        private readonly IConnection _connection;
+        private readonly ConnectionParameters _parameters;
         public string QueryString { get; set; }
 
-        public Query(IConnection connection) 
+        public Query(ConnectionParameters parameters) 
         {
             ProgressGranularity = 13;
-            _connection = connection;
+            _parameters = parameters;
         }
 
         public event EventHandler<QueryProgressEventArgs> QueryProgress;
@@ -20,30 +20,35 @@ namespace TfsConvenience
 
         public QueryResults Execute()
         {
-            if (_connection == null || !_connection.IsValid) return null;
 
             OnProgress(ProgressType.Connecting);
             var results = new QueryResults();
-
             try
             {
-                using (var tfs = _connection.Connect())
+                if (_parameters == null)
                 {
-                    var store = tfs.GetService<WorkItemStore>();
-                    var itemCollection = store.Query(QueryString);
-
-                    var total = itemCollection.Count;
-                    var current = 1;
-                    OnProgress(ProgressType.Querying, current, total);
-                    foreach (WorkItem wi in itemCollection)
+                    results.ErrorMessage = "Connection parameters not set!";
+                }
+                else
+                {
+                    using (var tfs = Connection.Connect(_parameters))
                     {
-                        results.Add(new ResultItem(wi));
-                        if (current++ % ProgressGranularity == 0)
-                        {
-                            OnProgress(ProgressType.Querying, current, total);
-                        }
-                    }
+                        var store = tfs.GetService<WorkItemStore>();
+                        var itemCollection = store.Query(QueryString);
 
+                        var total = itemCollection.Count;
+                        var current = 1;
+                        OnProgress(ProgressType.Querying, current, total);
+                        foreach (WorkItem wi in itemCollection)
+                        {
+                            results.Add(new ResultItem(wi));
+                            if (current++%ProgressGranularity == 0)
+                            {
+                                OnProgress(ProgressType.Querying, current, total);
+                            }
+                        }
+
+                    }
                 }
             }
             catch (Exception e)
@@ -52,7 +57,7 @@ namespace TfsConvenience
             }
             finally
             {
-                OnProgress(ProgressType.Complete, 0,0);
+                OnProgress(ProgressType.Complete);
             }
             return results;
         }
@@ -61,8 +66,7 @@ namespace TfsConvenience
         {
             return Task.Run(() => Execute());
         }
-
-
+        
         private void OnProgress(ProgressType type)
         {
             OnProgress(type, 0, 0);
