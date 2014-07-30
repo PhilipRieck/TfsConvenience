@@ -31,7 +31,7 @@ namespace TfsConvenience
             return credentials;
         }
         
-        public static Task<bool> Test(ConnectionParameters parameters)
+        public static Task<string> Test(ConnectionParameters parameters)
         {
             return Task.Run(() =>
             {
@@ -42,14 +42,14 @@ namespace TfsConvenience
                         tfs.Authenticate();
                         if (tfs.HasAuthenticated)
                         {
-                            return true;
+                            return string.Empty;
                         }
                     }
-                    return false;
+                    return "Unable to connect";
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    return false;
+                    return e.Message;
                 }
             });
         }
